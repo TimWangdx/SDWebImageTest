@@ -63,21 +63,25 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
 
 /**
  * The maximum "total cost" of the in-memory image cache. The cost function is the number of pixels held in memory.
+ * 缓存最大内存，已像素点计算的
  */
 @property (assign, nonatomic) NSUInteger maxMemoryCost;
 
 /**
  * The maximum number of objects the cache should hold.
+ * 最大的缓存对象个数
  */
 @property (assign, nonatomic) NSUInteger maxMemoryCountLimit;
 
 /**
  * The maximum length of time to keep an image in the cache, in seconds
+ * 最大缓存的时间，以秒计算
  */
 @property (assign, nonatomic) NSInteger maxCacheAge;
 
 /**
  * The maximum size of the cache, in bytes.
+ * 最大缓存，以字节单位
  */
 @property (assign, nonatomic) NSUInteger maxCacheSize;
 
@@ -85,6 +89,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Returns global shared cache instance
  *
  * @return SDImageCache global instance
+ * 返回全局的Cache对象
  */
 + (SDImageCache *)sharedImageCache;
 
@@ -92,6 +97,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Init a new cache store with a specific namespace
  *
  * @param ns The namespace to use for this cache store
+ * 名字
  */
 - (id)initWithNamespace:(NSString *)ns;
 
@@ -100,9 +106,11 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *
  * @param ns        The namespace to use for this cache store
  * @param directory Directory to cache disk images in
+ * 名字 和 目录
  */
 - (id)initWithNamespace:(NSString *)ns diskCacheDirectory:(NSString *)directory;
 
+// 生成disk cache path，其实就是生成图片缓存的路径
 -(NSString *)makeDiskCachePath:(NSString*)fullNamespace;
 
 /**
