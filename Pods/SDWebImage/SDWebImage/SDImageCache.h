@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "SDWebImageCompat.h"
 
+// image的来源，是来自网络下载，还是内存缓存，disk缓存
 typedef NS_ENUM(NSInteger, SDImageCacheType) {
     /**
      * The image wasn't available the SDWebImage caches, but was downloaded from the web.
@@ -24,31 +25,39 @@ typedef NS_ENUM(NSInteger, SDImageCacheType) {
     SDImageCacheTypeMemory
 };
 
+// 查询的block
 typedef void(^SDWebImageQueryCompletedBlock)(UIImage *image, SDImageCacheType cacheType);
 
+// 检查缓存的block
 typedef void(^SDWebImageCheckCacheCompletionBlock)(BOOL isInCache);
 
+// 计算文件的block，待定，暂时不知道具体的作用
 typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger totalSize);
+
 
 /**
  * SDImageCache maintains a memory cache and an optional disk cache. Disk cache write operations are performed
  * asynchronous so it doesn’t add unnecessary latency to the UI.
+ * 维护一个内存缓存，disk缓存是可选的，而且是一部操作，不会影响主线程
  */
 @interface SDImageCache : NSObject
 
 /**
  * Decompressing images that are downloaded and cached can improve performance but can consume lot of memory.
  * Defaults to YES. Set this to NO if you are experiencing a crash due to excessive memory consumption.
+ * 如果app 由于内存问题，可以把这个值设置为no，默认设为yes，暂时不知道这个解压时什么意思？
  */
 @property (assign, nonatomic) BOOL shouldDecompressImages;
 
 /**
  *  disable iCloud backup [defaults to YES]
+ *  可以开启备份到iCloud，默认是关闭的
  */
 @property (assign, nonatomic) BOOL shouldDisableiCloud;
 
 /**
  * use memory cache [defaults to YES]
+ * 缓存到内存中，默认是yes；
  */
 @property (assign, nonatomic) BOOL shouldCacheImagesInMemory;
 

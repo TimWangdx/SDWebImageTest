@@ -64,69 +64,7 @@
     return self;
 }
 
-// 根据url - > 得到key，有block执行自定义的block，没有则执行默认的absoluteString
-- (NSString *)cacheKeyForURL:(NSURL *)url {
-    if (!url) {
-        return @"";
-    }
-    
-    if (self.cacheKeyFilter) {
-        return self.cacheKeyFilter(url);
-    } else {
-        return [url absoluteString];
-    }
-}
-
-- (BOOL)cachedImageExistsForURL:(NSURL *)url {
-    NSString *key = [self cacheKeyForURL:url];
-    // 先检查内存有没有缓存，内存有缓存，直接返回yes
-    if ([self.imageCache imageFromMemoryCacheForKey:key] != nil) return YES;
-    
-    // 再检查disk有没有缓存
-    return [self.imageCache diskImageExistsWithKey:key];
-}
-
-- (BOOL)diskImageExistsForURL:(NSURL *)url {
-    NSString *key = [self cacheKeyForURL:url];
-    // disk 缓存是否存在，根据key
-    return [self.imageCache diskImageExistsWithKey:key];
-}
-
-- (void)cachedImageExistsForURL:(NSURL *)url
-                     completion:(SDWebImageCheckCacheCompletionBlock)completionBlock {
-    NSString *key = [self cacheKeyForURL:url];
-    
-    BOOL isInMemoryCache = ([self.imageCache imageFromMemoryCacheForKey:key] != nil);
-    
-    if (isInMemoryCache) {
-        // making sure we call the completion block on the main queue
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (completionBlock) {
-                completionBlock(YES);
-            }
-        });
-        return;
-    }
-    
-    [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
-        // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
-        if (completionBlock) {
-            completionBlock(isInDiskCache);
-        }
-    }];
-}
-
-- (void)diskImageExistsForURL:(NSURL *)url
-                   completion:(SDWebImageCheckCacheCompletionBlock)completionBlock {
-    NSString *key = [self cacheKeyForURL:url];
-    
-    [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
-        // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
-        if (completionBlock) {
-            completionBlock(isInDiskCache);
-        }
-    }];
-}
+// 下载的操作
 
 - (id <SDWebImageOperation>)downloadImageWithURL:(NSURL *)url
                                          options:(SDWebImageOptions)options
@@ -314,15 +252,9 @@
     return operation;
 }
 
-- (void)saveImageToCache:(UIImage *)image forURL:(NSURL *)url {
-    if (image && url) {
-        NSString *key = [self cacheKeyForURL:url];
-        [self.imageCache storeImage:image forKey:key toDisk:YES];
-    }
-}
-
 - (void)cancelAll {
     @synchronized (self.runningOperations) {
+        // 取出所有operation ，执行cancel操作
         NSArray *copiedOperations = [self.runningOperations copy];
         [copiedOperations makeObjectsPerformSelector:@selector(cancel)];
         [self.runningOperations removeObjectsInArray:copiedOperations];
@@ -331,10 +263,85 @@
 
 - (BOOL)isRunning {
     BOOL isRunning = NO;
+    // 只要runningOperations 有operation，则认为isRunning = yes;
     @synchronized(self.runningOperations) {
         isRunning = (self.runningOperations.count > 0);
     }
     return isRunning;
+}
+
+// 缓存相关的操作。
+
+// 根据url - > 得到key，有block执行自定义的block，没有则执行默认的absoluteString
+- (NSString *)cacheKeyForURL:(NSURL *)url {
+    if (!url) {
+        return @"";
+    }
+    
+    if (self.cacheKeyFilter) {
+        return self.cacheKeyFilter(url);
+    } else {
+        return [url absoluteString];
+    }
+}
+
+- (BOOL)cachedImageExistsForURL:(NSURL *)url {
+    NSString *key = [self cacheKeyForURL:url];
+    // 先检查内存有没有缓存，内存有缓存，直接返回yes
+    if ([self.imageCache imageFromMemoryCacheForKey:key] != nil) return YES;
+    
+    // 再检查disk有没有缓存
+    return [self.imageCache diskImageExistsWithKey:key];
+}
+
+- (BOOL)diskImageExistsForURL:(NSURL *)url {
+    NSString *key = [self cacheKeyForURL:url];
+    // disk 缓存是否存在，根据key
+    return [self.imageCache diskImageExistsWithKey:key];
+}
+
+- (void)cachedImageExistsForURL:(NSURL *)url
+                     completion:(SDWebImageCheckCacheCompletionBlock)completionBlock {
+    NSString *key = [self cacheKeyForURL:url];
+    
+    BOOL isInMemoryCache = ([self.imageCache imageFromMemoryCacheForKey:key] != nil);
+    
+    if (isInMemoryCache) {
+        // making sure we call the completion block on the main queue
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (completionBlock) {
+                completionBlock(YES);
+            }
+        });
+        return;
+    }
+    
+    [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
+        // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
+        if (completionBlock) {
+            completionBlock(isInDiskCache);
+        }
+    }];
+}
+
+- (void)diskImageExistsForURL:(NSURL *)url
+                   completion:(SDWebImageCheckCacheCompletionBlock)completionBlock {
+    NSString *key = [self cacheKeyForURL:url];
+    
+    [self.imageCache diskImageExistsWithKey:key completion:^(BOOL isInDiskCache) {
+        // the completion block of checkDiskCacheForImageWithKey:completion: is always called on the main queue, no need to further dispatch
+        if (completionBlock) {
+            completionBlock(isInDiskCache);
+        }
+    }];
+}
+
+// 缓存图片，只有image 和 url 有值的时候，进行缓存,内存缓存和disk都缓存。
+- (void)saveImageToCache:(UIImage *)image forURL:(NSURL *)url {
+    if (image && url) {
+        NSString *key = [self cacheKeyForURL:url];
+        [self.imageCache storeImage:image forKey:key toDisk:YES];
+    }
 }
 
 @end
@@ -373,6 +380,7 @@
 @end
 
 
+// 废弃的函数
 @implementation SDWebImageManager (Deprecated)
 
 // deprecated method, uses the non deprecated method
