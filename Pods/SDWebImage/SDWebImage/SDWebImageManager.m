@@ -88,6 +88,7 @@
 
 - (BOOL)diskImageExistsForURL:(NSURL *)url {
     NSString *key = [self cacheKeyForURL:url];
+    // disk 缓存是否存在，根据key
     return [self.imageCache diskImageExistsWithKey:key];
 }
 
