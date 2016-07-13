@@ -13,6 +13,7 @@
  *  @param data the input data
  *
  *  @return the content type as string (i.e. image/jpeg, image/gif)
+ *  根据二进制数据的第一位，判断图片的类型
  */
 // 
 + (NSString *)sd_contentTypeForImageData:(NSData *)data;

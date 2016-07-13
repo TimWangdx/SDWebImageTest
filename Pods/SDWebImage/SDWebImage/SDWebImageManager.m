@@ -9,6 +9,7 @@
 #import "SDWebImageManager.h"
 #import <objc/message.h>
 
+// 遵守了SDWebImageOperation协议的类，具有cancel的方法
 @interface SDWebImageCombinedOperation : NSObject <SDWebImageOperation>
 
 @property (assign, nonatomic, getter = isCancelled) BOOL cancelled;
@@ -19,15 +20,23 @@
 
 @interface SDWebImageManager ()
 
+// 缓存器
 @property (strong, nonatomic, readwrite) SDImageCache *imageCache;
+
+// 下载器
 @property (strong, nonatomic, readwrite) SDWebImageDownloader *imageDownloader;
+
+// 下载失败的urls，是缓存在内存的，没有缓存在disk，所以app重启后，一开始是空的
 @property (strong, nonatomic) NSMutableSet *failedURLs;
+
+// 正在运行的operation
 @property (strong, nonatomic) NSMutableArray *runningOperations;
 
 @end
 
 @implementation SDWebImageManager
 
+// 获取全局的单例对象
 + (id)sharedManager {
     static dispatch_once_t once;
     static id instance;
@@ -37,12 +46,14 @@
     return instance;
 }
 
+// 初始化。构建全局的cache 和 downloader
 - (instancetype)init {
     SDImageCache *cache = [SDImageCache sharedImageCache];
     SDWebImageDownloader *downloader = [SDWebImageDownloader sharedDownloader];
     return [self initWithCache:cache downloader:downloader];
 }
 
+// 初始化
 - (instancetype)initWithCache:(SDImageCache *)cache downloader:(SDWebImageDownloader *)downloader {
     if ((self = [super init])) {
         _imageCache = cache;
@@ -53,6 +64,7 @@
     return self;
 }
 
+// 根据url - > 得到key，有block执行自定义的block，没有则执行默认的absoluteString
 - (NSString *)cacheKeyForURL:(NSURL *)url {
     if (!url) {
         return @"";
@@ -67,7 +79,10 @@
 
 - (BOOL)cachedImageExistsForURL:(NSURL *)url {
     NSString *key = [self cacheKeyForURL:url];
+    // 先检查内存有没有缓存，内存有缓存，直接返回yes
     if ([self.imageCache imageFromMemoryCacheForKey:key] != nil) return YES;
+    
+    // 再检查disk有没有缓存
     return [self.imageCache diskImageExistsWithKey:key];
 }
 

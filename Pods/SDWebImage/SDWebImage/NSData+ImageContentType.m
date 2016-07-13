@@ -39,7 +39,7 @@
 
 @end
 
-
+// 废弃的函数
 @implementation NSData (ImageContentTypeDeprecated)
 
 + (NSString *)contentTypeForImageData:(NSData *)data {
