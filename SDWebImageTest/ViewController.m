@@ -28,6 +28,16 @@
     [self.imageView sd_setImageWithURL:url placeholderImage:nil options:SDWebImageProgressiveDownload completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
         
     }];
+    
+    SDImageCache *cache = [SDImageCache sharedImageCache];
+    
+    SDWebImageManager *manager = [SDWebImageManager sharedManager];
+    
+    NSString *key = [manager cacheKeyForURL:url];
+    
+    NSString *path = [cache defaultCachePathForKey:key];
+    
+    NSLog(@"path = %@",path);
 }
 
 - (void)didReceiveMemoryWarning {

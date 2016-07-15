@@ -118,6 +118,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Useful if you want to bundle pre-loaded images with your app
  *
  * @param path The path to use for this read-only cache path
+ * 暂时不理解这个方法，或者path的作用
  */
 - (void)addReadOnlyCachePath:(NSString *)path;
 
@@ -126,6 +127,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *
  * @param image The image to store
  * @param key   The unique image cache key, usually it's image absolute URL
+ * 缓存到内存和disk
  */
 - (void)storeImage:(UIImage *)image forKey:(NSString *)key;
 
@@ -135,6 +137,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * @param image  The image to store
  * @param key    The unique image cache key, usually it's image absolute URL
  * @param toDisk Store the image to disk cache if YES
+ * 缓存到内存，yes 缓存到disk，no不缓存到disk
  */
 - (void)storeImage:(UIImage *)image forKey:(NSString *)key toDisk:(BOOL)toDisk;
 
@@ -148,6 +151,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *                    to save quality and CPU
  * @param key         The unique image cache key, usually it's image absolute URL
  * @param toDisk      Store the image to disk cache if YES
+ * 多了个选项，recalculate，需要重新计算，data是否是新的，或者能不能生成一个image
  */
 - (void)storeImage:(UIImage *)image recalculateFromImage:(BOOL)recalculate imageData:(NSData *)imageData forKey:(NSString *)key toDisk:(BOOL)toDisk;
 
@@ -156,6 +160,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *
  * @param imageData The image data to store
  * @param key   The unique image cache key, usually it's image absolute URL
+ * 缓存图片到disk
  */
 - (void)storeImageDataToDisk:(NSData *)imageData forKey:(NSString *)key;
 
@@ -163,6 +168,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Query the disk cache asynchronously.
  *
  * @param key The unique key used to store the wanted image
+ * 异步查询缓存
  */
 - (NSOperation *)queryDiskCacheForKey:(NSString *)key done:(SDWebImageQueryCompletedBlock)doneBlock;
 
@@ -170,6 +176,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Query the memory cache synchronously.
  *
  * @param key The unique key used to store the wanted image
+ * 同步的从内存中获取缓存的image
  */
 - (UIImage *)imageFromMemoryCacheForKey:(NSString *)key;
 
@@ -177,6 +184,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Query the disk cache synchronously after checking the memory cache.
  *
  * @param key The unique key used to store the wanted image
+ * 同步的从disk中获取缓存的image
  */
 - (UIImage *)imageFromDiskCacheForKey:(NSString *)key;
 
@@ -184,6 +192,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * Remove the image from memory and disk cache asynchronously
  *
  * @param key The unique image cache key
+ * 从内存缓存和disk缓存中删除
  */
 - (void)removeImageForKey:(NSString *)key;
 
@@ -193,6 +202,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *
  * @param key             The unique image cache key
  * @param completion      An block that should be executed after the image has been removed (optional)
+ * 异步删除缓存
  */
 - (void)removeImageForKey:(NSString *)key withCompletion:(SDWebImageNoParamsBlock)completion;
 
@@ -201,6 +211,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *
  * @param key      The unique image cache key
  * @param fromDisk Also remove cache entry from disk if YES
+ * 移除内存缓存，disk缓存可选
  */
 - (void)removeImageForKey:(NSString *)key fromDisk:(BOOL)fromDisk;
 
@@ -210,50 +221,59 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  * @param key             The unique image cache key
  * @param fromDisk        Also remove cache entry from disk if YES
  * @param completion      An block that should be executed after the image has been removed (optional)
+ * 异步移除缓存
  */
 - (void)removeImageForKey:(NSString *)key fromDisk:(BOOL)fromDisk withCompletion:(SDWebImageNoParamsBlock)completion;
 
 /**
  * Clear all memory cached images
+ * 清除所有内存缓存
  */
 - (void)clearMemory;
 
 /**
  * Clear all disk cached images. Non-blocking method - returns immediately.
  * @param completion    An block that should be executed after cache expiration completes (optional)
+ * 异步清除disk缓存，
  */
 - (void)clearDiskOnCompletion:(SDWebImageNoParamsBlock)completion;
 
 /**
  * Clear all disk cached images
  * @see clearDiskOnCompletion:
+ * 清除所有disk缓存
  */
 - (void)clearDisk;
 
 /**
  * Remove all expired cached image from disk. Non-blocking method - returns immediately.
  * @param completionBlock An block that should be executed after cache expiration completes (optional)
+ * 异步清除disk 缓存
  */
 - (void)cleanDiskWithCompletionBlock:(SDWebImageNoParamsBlock)completionBlock;
 
 /**
  * Remove all expired cached image from disk
  * @see cleanDiskWithCompletionBlock:
+ * 清除过期的缓存数据
  */
 - (void)cleanDisk;
 
 /**
  * Get the size used by the disk cache
+ * 得到disk 缓存大小
  */
 - (NSUInteger)getSize;
 
 /**
  * Get the number of images in the disk cache
+ * 得到缓存的图片的数量
  */
 - (NSUInteger)getDiskCount;
 
 /**
  * Asynchronously calculate the disk cache's size.
+ * 异步计算disk 缓存的图片大小，可能很费时，需要计算所有缓存的图片的大小
  */
 - (void)calculateSizeWithCompletionBlock:(SDWebImageCalculateSizeBlock)completionBlock;
 
@@ -263,6 +283,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *  @param key             the key describing the url
  *  @param completionBlock the block to be executed when the check is done.
  *  @note the completion block will be always executed on the main queue
+ *  异步判断在disk上是否存在指定的图片缓存
  */
 - (void)diskImageExistsWithKey:(NSString *)key completion:(SDWebImageCheckCacheCompletionBlock)completionBlock;
 
@@ -272,6 +293,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *  @param key the key describing the url
  *
  *  @return YES if an image exists for the given key
+ *  判断在disk上是否存在指定的图片缓存
  */
 - (BOOL)diskImageExistsWithKey:(NSString *)key;
 
@@ -282,6 +304,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *  @param path the cache path root folder
  *
  *  @return the cache path
+ * 根据key，获取缓存的图片的路径，需要一个参数
  */
 - (NSString *)cachePathForKey:(NSString *)key inPath:(NSString *)path;
 
@@ -291,6 +314,7 @@ typedef void(^SDWebImageCalculateSizeBlock)(NSUInteger fileCount, NSUInteger tot
  *  @param key the key (can be obtained from url using cacheKeyForURL)
  *
  *  @return the default cache path
+ *  根据key，获取到图片的路径
  */
 - (NSString *)defaultCachePathForKey:(NSString *)key;
 
