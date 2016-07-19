@@ -12,6 +12,7 @@
 #import <ImageIO/ImageIO.h>
 #import "SDWebImageManager.h"
 
+// 借个通知的名称
 NSString *const SDWebImageDownloadStartNotification = @"SDWebImageDownloadStartNotification";
 NSString *const SDWebImageDownloadReceiveResponseNotification = @"SDWebImageDownloadReceiveResponseNotification";
 NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNotification";
@@ -19,39 +20,58 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 
 @interface SDWebImageDownloaderOperation ()
 
+// 3个回调
 @property (copy, nonatomic) SDWebImageDownloaderProgressBlock progressBlock;
 @property (copy, nonatomic) SDWebImageDownloaderCompletedBlock completedBlock;
 @property (copy, nonatomic) SDWebImageNoParamsBlock cancelBlock;
 
+// 是否正在执行
 @property (assign, nonatomic, getter = isExecuting) BOOL executing;
+
+// 下载是否完成
 @property (assign, nonatomic, getter = isFinished) BOOL finished;
+
+// 图片的二进制数据
 @property (strong, nonatomic) NSMutableData *imageData;
 
+// 需要研究这个weak的用法，为了什么，是外部传进的session。SDWebImageDownloader, 传进来的session
 // This is weak because it is injected by whoever manages this session. If this gets nil-ed out, we won't be able to run
 // the task associated with this operation
 @property (weak, nonatomic) NSURLSession *unownedSession;
+
+
 // This is set if we're using not using an injected NSURLSession. We're responsible of invalidating this one
+// 如果外部传进来的session为空的话，属于自己内部的一个sesson
 @property (strong, nonatomic) NSURLSession *ownedSession;
 
+// 下载图片的task
 @property (strong, nonatomic, readwrite) NSURLSessionTask *dataTask;
 
+// 可能指执行这个operation 的线程。
 @property (strong, atomic) NSThread *thread;
 
 #if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+// 后天下载的任务的Identifier，标识
 @property (assign, nonatomic) UIBackgroundTaskIdentifier backgroundTaskId;
 #endif
 
 @end
 
 @implementation SDWebImageDownloaderOperation {
+    // 图片的宽，高
     size_t width, height;
+    
+    // 图片的方向
     UIImageOrientation orientation;
+    
+    // 是否是从http 系统的缓存里获取的
     BOOL responseFromCached;
 }
 
 @synthesize executing = _executing;
 @synthesize finished = _finished;
 
+// 废弃的方法
 - (id)initWithRequest:(NSURLRequest *)request
               options:(SDWebImageDownloaderOptions)options
              progress:(SDWebImageDownloaderProgressBlock)progressBlock
@@ -66,6 +86,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
                        cancelled:cancelBlock];
 }
 
+// 初始化下载的operation
 - (id)initWithRequest:(NSURLRequest *)request
             inSession:(NSURLSession *)session
               options:(SDWebImageDownloaderOptions)options
@@ -83,31 +104,38 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         _finished = NO;
         _expectedSize = 0;
         _unownedSession = session;
+        // 默认是从缓存里去的状态，知道这个代理方法调用，再次设置状态
         responseFromCached = YES; // Initially wrong until `- URLSession:dataTask:willCacheResponse:completionHandler: is called or not called
     }
     return self;
 }
-
+// 重写了start 方法，没有重写main 方法
 - (void)start {
     @synchronized (self) {
         if (self.isCancelled) {
+            // 盘点任务有没有被取消，可能一开始放在队列了，取出来执行的时候，发现用户取消下载操作，则设置finish状态，充值属性，成员变量
             self.finished = YES;
             [self reset];
             return;
         }
 
 #if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+        // iOS 4.0 以上的，后台可以继续执行下载任务
         Class UIApplicationClass = NSClassFromString(@"UIApplication");
         BOOL hasApplication = UIApplicationClass && [UIApplicationClass respondsToSelector:@selector(sharedApplication)];
         if (hasApplication && [self shouldContinueWhenAppEntersBackground]) {
+            // 若果设置了进入后台继续下载的选项
             __weak __typeof__ (self) wself = self;
             UIApplication * app = [UIApplicationClass performSelector:@selector(sharedApplication)];
+            // 这个方法需要研究
             self.backgroundTaskId = [app beginBackgroundTaskWithExpirationHandler:^{
                 __strong __typeof (wself) sself = wself;
 
                 if (sself) {
+                    // 进入后台后，时间到了，则执行cancel操作
                     [sself cancel];
-
+                    
+                    // 结束后台任务
                     [app endBackgroundTask:sself.backgroundTaskId];
                     sself.backgroundTaskId = UIBackgroundTaskInvalid;
                 }
@@ -115,8 +143,11 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         }
 #endif
         NSURLSession *session = self.unownedSession;
+        // 如果外部的session为空，则自己建一个session，可能是为了兼容老接口
         if (!self.unownedSession) {
             NSURLSessionConfiguration *sessionConfig = [NSURLSessionConfiguration defaultSessionConfiguration];
+            
+            // 超时时间为15.0s
             sessionConfig.timeoutIntervalForRequest = 15;
             
             /**
@@ -124,6 +155,8 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
              *  We send nil as delegate queue so that the session creates a serial operation queue for performing all delegate
              *  method calls and completion handler calls.
              */
+            
+            // 自己内部建了一个session，用来下载图片
             self.ownedSession = [NSURLSession sessionWithConfiguration:sessionConfig
                                                               delegate:self
                                                          delegateQueue:nil];
@@ -135,17 +168,21 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         self.thread = [NSThread currentThread];
     }
     
+    // 开始下载
     [self.dataTask resume];
 
     if (self.dataTask) {
+        // 先会掉一下这个block，什么作用呢
         if (self.progressBlock) {
             self.progressBlock(0, NSURLResponseUnknownLength);
         }
+        // 在主线程里post 一个请求，开始下载
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStartNotification object:self];
         });
     }
     else {
+        // 现在task为nil，则回调completedBlock，报错误
         if (self.completedBlock) {
             self.completedBlock(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Connection can't be initialized"}], YES);
         }
@@ -164,9 +201,11 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 #endif
 }
 
+// 取消下载
 - (void)cancel {
     @synchronized (self) {
         if (self.thread) {
+            // 在那个operation 的thread 执行方法，一般这个cancel'的调用者是在主线程，所以切换线程
             [self performSelector:@selector(cancelInternalAndStop) onThread:self.thread withObject:nil waitUntilDone:NO];
         }
         else {
@@ -183,16 +222,22 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 - (void)cancelInternal {
     if (self.isFinished) return;
     [super cancel];
+    
+    // 回调cacel的block
     if (self.cancelBlock) self.cancelBlock();
 
     if (self.dataTask) {
+        // 取消下载任务
         [self.dataTask cancel];
+        
         dispatch_async(dispatch_get_main_queue(), ^{
+            // 发出取消通知
             [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
         });
 
         // As we cancelled the connection, its callback won't be called and thus won't
         // maintain the isFinished and isExecuting flags.
+        // 设置状态,executing 设置为no，finished设置为yes。
         if (self.isExecuting) self.executing = NO;
         if (!self.isFinished) self.finished = YES;
     }
@@ -200,12 +245,14 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
     [self reset];
 }
 
+// 表示下载完成，设置各个状体
 - (void)done {
     self.finished = YES;
     self.executing = NO;
     [self reset];
 }
 
+// 重置状态
 - (void)reset {
     self.cancelBlock = nil;
     self.completedBlock = nil;
@@ -214,23 +261,27 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
     self.imageData = nil;
     self.thread = nil;
     if (self.ownedSession) {
+        // 如果是自己的operation，取消所有下载的task
         [self.ownedSession invalidateAndCancel];
         self.ownedSession = nil;
     }
 }
 
+// 设置完成的状态
 - (void)setFinished:(BOOL)finished {
     [self willChangeValueForKey:@"isFinished"];
     _finished = finished;
     [self didChangeValueForKey:@"isFinished"];
 }
 
+// 设置执行的状态
 - (void)setExecuting:(BOOL)executing {
     [self willChangeValueForKey:@"isExecuting"];
     _executing = executing;
     [self didChangeValueForKey:@"isExecuting"];
 }
 
+// 重写这个方法，表示是异步执行
 - (BOOL)isConcurrent {
     return YES;
 }

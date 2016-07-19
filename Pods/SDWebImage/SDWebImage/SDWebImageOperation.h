@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 
+// 定义了一个Operation协议，支持cancel接口
 @protocol SDWebImageOperation <NSObject>
 
 - (void)cancel;
