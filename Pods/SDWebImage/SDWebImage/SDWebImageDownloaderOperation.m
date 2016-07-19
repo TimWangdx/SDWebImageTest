@@ -322,6 +322,7 @@ didReceiveResponse:(NSURLResponse *)response
         //This is the case when server returns '304 Not Modified'. It means that remote image is not changed.
         //In case of 304 we need just cancel the operation and return cached image from the cache.
         if (code == 304) {
+            // 表示资源文件，没被修改过，就取消
             [self cancelInternal];
         } else {
             [self.dataTask cancel];
