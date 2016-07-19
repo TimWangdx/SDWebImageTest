@@ -288,6 +288,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 
 #pragma mark NSURLSessionDataDelegate
 
+// 接收到请求头
 - (void)URLSession:(NSURLSession *)session
           dataTask:(NSURLSessionDataTask *)dataTask
 didReceiveResponse:(NSURLResponse *)response
@@ -295,14 +296,22 @@ didReceiveResponse:(NSURLResponse *)response
     
     //'304 Not Modified' is an exceptional one
     if (![response respondsToSelector:@selector(statusCode)] || ([((NSHTTPURLResponse *)response) statusCode] < 400 && [((NSHTTPURLResponse *)response) statusCode] != 304)) {
+        // 设置文件的大小，即期望下载的大小
         NSInteger expected = response.expectedContentLength > 0 ? (NSInteger)response.expectedContentLength : 0;
         self.expectedSize = expected;
+        
+        // 先会调用下block
         if (self.progressBlock) {
             self.progressBlock(0, expected);
         }
         
+        // 创建data
         self.imageData = [[NSMutableData alloc] initWithCapacity:expected];
+        
+        // http 相应
         self.response = response;
+        
+        // 在主线程里post 通知
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadReceiveResponseNotification object:self];
         });
