@@ -317,6 +317,7 @@ didReceiveResponse:(NSURLResponse *)response
         });
     }
     else {
+        // 缓存文件没有变化，就完成下载了
         NSUInteger code = [((NSHTTPURLResponse *)response) statusCode];
         
         //This is the case when server returns '304 Not Modified'. It means that remote image is not changed.
@@ -325,26 +326,33 @@ didReceiveResponse:(NSURLResponse *)response
             // 表示资源文件，没被修改过，就取消
             [self cancelInternal];
         } else {
+            // 取消下载
             [self.dataTask cancel];
         }
         dispatch_async(dispatch_get_main_queue(), ^{
+            // 通知停止下载
             [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
         });
         
         if (self.completedBlock) {
+            // 调用completedBlock ，304
             self.completedBlock(nil, nil, [NSError errorWithDomain:NSURLErrorDomain code:[((NSHTTPURLResponse *)response) statusCode] userInfo:nil], YES);
         }
         [self done];
     }
     
+    // 继续接收数据
     if (completionHandler) {
         completionHandler(NSURLSessionResponseAllow);
     }
 }
 
+// 接受图片数据的回调，可能调用多次
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
+    // 添加二进制数据
     [self.imageData appendData:data];
 
+    // 渐进式下载的处理
     if ((self.options & SDWebImageDownloaderProgressiveDownload) && self.expectedSize > 0 && self.completedBlock) {
         // The following code is from http://www.cocoaintheshell.com/2011/05/progressive-images-download-imageio/
         // Thanks to the author @Nyx0uf
@@ -422,20 +430,24 @@ didReceiveResponse:(NSURLResponse *)response
         CFRelease(imageSource);
     }
 
+    // 调动回调函数
     if (self.progressBlock) {
         self.progressBlock(self.imageData.length, self.expectedSize);
     }
 }
 
+// 询问是可以否缓存数据，在下载完成之后调用
 - (void)URLSession:(NSURLSession *)session
           dataTask:(NSURLSessionDataTask *)dataTask
  willCacheResponse:(NSCachedURLResponse *)proposedResponse
  completionHandler:(void (^)(NSCachedURLResponse *cachedResponse))completionHandler {
 
+    // 如果这个方法被调用了，说明是从网上下载的，并不是从缓存读取的
     responseFromCached = NO; // If this method is called, it means the response wasn't read from cache
     NSCachedURLResponse *cachedResponse = proposedResponse;
 
     if (self.request.cachePolicy == NSURLRequestReloadIgnoringLocalCacheData) {
+        // 不缓存
         // Prevents caching of responses
         cachedResponse = nil;
     }
@@ -446,26 +458,34 @@ didReceiveResponse:(NSURLResponse *)response
 
 #pragma mark NSURLSessionTaskDelegate
 
+// 下载完成
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     @synchronized(self) {
         self.thread = nil;
         self.dataTask = nil;
+        
         dispatch_async(dispatch_get_main_queue(), ^{
+            // 停止下载的通知
             [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadStopNotification object:self];
             if (!error) {
+                // 下载完成的通知
                 [[NSNotificationCenter defaultCenter] postNotificationName:SDWebImageDownloadFinishNotification object:self];
             }
         });
     }
     
     if (error) {
+        // 是有失败的完成，则回调失败的block
         if (self.completedBlock) {
             self.completedBlock(nil, nil, error, YES);
         }
     } else {
+        // 正产的下载完成
         SDWebImageDownloaderCompletedBlock completionBlock = self.completedBlock;
         
+        // 查询本地缓存，是否是从本地缓存加载的，没有的话，说明是从服务器下载的
         if (![[NSURLCache sharedURLCache] cachedResponseForRequest:_request]) {
+            // 缓存
             responseFromCached = NO;
         }
         
