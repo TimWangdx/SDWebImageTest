@@ -166,6 +166,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
         self.dataTask = [session dataTaskWithRequest:self.request];
         self.executing = YES;
         self.thread = [NSThread currentThread];
+        NSLog(@"SDWebImageDownloaderOperation = %@",self.thread);
     }
     
     // 开始下载
@@ -288,6 +289,7 @@ NSString *const SDWebImageDownloadFinishNotification = @"SDWebImageDownloadFinis
 
 #pragma mark NSURLSessionDataDelegate
 
+// 这个队列执行的线程跟执行operation 所在的线程，不是同一个线程
 // 接收到请求头
 - (void)URLSession:(NSURLSession *)session
           dataTask:(NSURLSessionDataTask *)dataTask
@@ -480,23 +482,25 @@ didReceiveResponse:(NSURLResponse *)response
             self.completedBlock(nil, nil, error, YES);
         }
     } else {
-        // 正产的下载完成
+        // 正常的下载完成
         SDWebImageDownloaderCompletedBlock completionBlock = self.completedBlock;
         
         // 查询本地缓存，是否是从本地缓存加载的，没有的话，说明是从服务器下载的
         if (![[NSURLCache sharedURLCache] cachedResponseForRequest:_request]) {
-            // 缓存
+            // 不是从缓存里取出来的
             responseFromCached = NO;
         }
         
         if (completionBlock) {
             if (self.options & SDWebImageDownloaderIgnoreCachedResponse && responseFromCached) {
+                // 指定不从缓存中读取，但实际又是从缓存中读取的，那image，imaedata就是nil
                 completionBlock(nil, nil, nil, YES);
             } else if (self.imageData) {
+                // 有数据，生成图片
                 UIImage *image = [UIImage sd_imageWithData:self.imageData];
                 NSString *key = [[SDWebImageManager sharedManager] cacheKeyForURL:self.request.URL];
                 image = [self scaledImageForKey:key image:image];
-                
+                NSLog(@"image = %@, thread = %@",image,[NSThread currentThread]);
                 // Do not force decoding animated GIFs
                 if (!image.images) {
                     if (self.shouldDecompressImages) {
@@ -504,21 +508,27 @@ didReceiveResponse:(NSURLResponse *)response
                     }
                 }
                 if (CGSizeEqualToSize(image.size, CGSizeZero)) {
+                    // 判断图片的尺寸，0像素
                     completionBlock(nil, nil, [NSError errorWithDomain:SDWebImageErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Downloaded image has 0 pixels"}], YES);
                 }
                 else {
+                    // 完成的回调
                     completionBlock(image, self.imageData, nil, YES);
                 }
             } else {
+                // imagedata 为空的回调，下载失败
                 completionBlock(nil, nil, [NSError errorWithDomain:SDWebImageErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey : @"Image data is nil"}], YES);
             }
         }
     }
     
+    // completionBlock 置空
     self.completionBlock = nil;
+    // 设置完成状态
     [self done];
 }
 
+// 应该跟https相关，需要研究，暂时跳过吧
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler {
     
     NSURLSessionAuthChallengeDisposition disposition = NSURLSessionAuthChallengePerformDefaultHandling;
@@ -578,6 +588,7 @@ didReceiveResponse:(NSURLResponse *)response
     return SDScaledImageForKey(key, image);
 }
 
+// 进入后台后继续下载
 - (BOOL)shouldContinueWhenAppEntersBackground {
     return self.options & SDWebImageDownloaderContinueInBackground;
 }

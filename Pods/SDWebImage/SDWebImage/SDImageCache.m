@@ -233,6 +233,7 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
             }
             
             // 换粗图片到disk
+            NSLog(@"storeImageDataToDisk");
             [self storeImageDataToDisk:data forKey:key];
         });
     }
@@ -267,8 +268,12 @@ FOUNDATION_STATIC_INLINE NSUInteger SDCacheCostForImage(UIImage *image) {
     NSURL *fileURL = [NSURL fileURLWithPath:cachePathForKey];
     
     // 保存文件
-    [_fileManager createFileAtPath:cachePathForKey contents:imageData attributes:nil];
+    BOOL exist = [_fileManager fileExistsAtPath:cachePathForKey];
+    NSLog(@"fileExistsAtPath exist = %d",exist);
     
+    
+    BOOL bRet = [_fileManager createFileAtPath:cachePathForKey contents:imageData attributes:nil];
+    NSLog(@"createFileAtPath bRet = %d",bRet);
     // disable iCloud backup
     if (self.shouldDisableiCloud) {
         // 不保存到iCloud

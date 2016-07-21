@@ -28,6 +28,35 @@
 - (void)applicationDidEnterBackground:(UIApplication *)application {
     // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+    
+    __block UIBackgroundTaskIdentifier background_task;
+    //注册一个后台任务，告诉系统我们需要向系统借一些事件
+//    background_task = [application beginBackgroundTaskWithExpirationHandler:^ {
+//        
+//        //不管有没有完成，结束background_task任务
+//        [application endBackgroundTask: background_task];
+//        background_task = UIBackgroundTaskInvalid;
+//    }];
+    
+    //异步
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        //### background task starts
+        NSLog(@"Running in the background\n");
+        
+        static int i = 0;
+        while(i < 100000000)
+        {
+            NSLog(@"Background time Remaining: %f",[[UIApplication sharedApplication] backgroundTimeRemaining]);
+            [NSThread sleepForTimeInterval:1]; //wait for 1 sec
+            i++;
+        }
+        
+        //我们自己完成任务后，结束background_task任务
+        //如果我们用while（TRUE）的话，下面这两行代码应该不会执行
+        [application endBackgroundTask: background_task];
+        background_task = UIBackgroundTaskInvalid;
+    });
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application {

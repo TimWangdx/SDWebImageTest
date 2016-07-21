@@ -12,6 +12,7 @@
 @interface ViewController ()
 @property (weak, nonatomic) IBOutlet UIImageView *imageView;
 
+@property (weak, nonatomic) IBOutlet UIImageView *imageView2;
 @end
 
 @implementation ViewController
@@ -28,7 +29,11 @@
     //
     //    }];
     [self.imageView sd_setImageWithURL:url placeholderImage:nil options:SDWebImageProgressiveDownload | SDWebImageRefreshCached completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
-        
+        NSLog(@"imageView cacheType = %zd",cacheType);
+    }];
+    
+    [self.imageView2 sd_setImageWithURL:url placeholderImage:nil options:SDWebImageProgressiveDownload | SDWebImageRefreshCached completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, NSURL *imageURL) {
+        NSLog(@"imageView2 cacheType = %zd",cacheType);
     }];
     
     SDImageCache *cache = [SDImageCache sharedImageCache];
@@ -40,6 +45,10 @@
     NSString *path = [cache defaultCachePathForKey:key];
     
     NSLog(@"path = %@",path);
+    
+    double money = 5.89;
+    NSInteger moneyiii = (int)money;
+    NSLog(@"nmoney = %ld",moneyiii);
 }
 
 - (void)didReceiveMemoryWarning {
